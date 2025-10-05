@@ -158,7 +158,7 @@ class MapService:
             return "extreme"
     
     def _get_noise_color(self, _) -> str:
-        return "#FFA07A"  # красный
+        return "#FFA07A"
     
     def _get_crowd_level(self, level: float) -> str:
         if level <= 2:

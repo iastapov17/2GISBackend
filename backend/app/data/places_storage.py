@@ -67,7 +67,6 @@ class PlacesStorage:
         return place_id in self.accessibility_data or place_id in self.reviews_data
 
 
-# Singleton
 _storage = None
 
 def get_places_storage() -> PlacesStorage:

@@ -21,8 +21,8 @@ class GisService:
         
         params = {
             "q": query,
-            "viewpoint1": f"{lon_min},{lat_max}",  # левый верхний угол
-            "viewpoint2": f"{lon_max},{lat_min}",  # правый нижний угол
+            "viewpoint1": f"{lon_min},{lat_max}",
+            "viewpoint2": f"{lon_max},{lat_min}",
             "type": "branch",
             "fields": "items.id,items.name,items.point,items.rubrics,items.address_name,items.address_comment",
             "page_size": limit
@@ -81,8 +81,8 @@ class GisService:
         lat_min, lon_min, lat_max, lon_max = bbox
         params = {
             "q": "торговый центр",
-            "viewpoint1": f"{lon_min},{lat_max}",  # левый верхний угол
-            "viewpoint2": f"{lon_max},{lat_min}",  # правый нижний угол
+            "viewpoint1": f"{lon_min},{lat_max}",
+            "viewpoint2": f"{lon_max},{lat_min}",
             "type": "branch",
             "fields": "items.point",
             "page_size": limit

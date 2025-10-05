@@ -57,7 +57,7 @@ class RouteWarning(BaseModel):
 class RouteGeometry(BaseModel):
     """GeoJSON геометрия маршрута"""
     type: str = "LineString"
-    coordinates: List[List[float]]  # [[lon, lat], ...]
+    coordinates: List[List[float]]
 
 
 class Route(BaseModel):

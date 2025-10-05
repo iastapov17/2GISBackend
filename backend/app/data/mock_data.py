@@ -43,39 +43,20 @@ class MockDataGenerator:
         layer_type: str = "noise",
         count: int = 30
     ) -> List[dict]:
-        """
-        Сгенерировать сегменты улиц в заданной области (асинхронно)
-        
-        Для света - использует 2GIS API если доступен
-        Для других - загружает из файлов или генерирует синтетику
-        
-        Args:
-            bbox: (lat_min, lon_min, lat_max, lon_max)
-            layer_type: тип слоя (noise, light, crowd, puddles)
-            count: количество сегментов (для синтетики)
-        
-        Returns:
-            Список сегментов с геометрией и метриками
-        """
-        # Попробовать загрузить реальные данные для конкретного типа слоя
         if self.use_real_data and self.polygon_loader:
-            # Для света используем асинхронный метод (2GIS API)
             if layer_type == "light":
                 print(f"✅ [{layer_type.upper()}] Используем асинхронный метод (2GIS API)")
                 real_polygons = await self.polygon_loader.find_polygons_in_bbox_async(layer_type, bbox)
                 if real_polygons:
                     print(f"✅ [{layer_type.upper()}] Используем {len(real_polygons)} реальных полигонов")
                     return self.polygon_loader.convert_to_segments(real_polygons)[:200]
-            # Для остальных - синхронный
             elif self.polygon_loader.has_data_for_layer(layer_type):
                 real_polygons = self.polygon_loader.find_polygons_in_bbox(layer_type, bbox)
                 if real_polygons:
                     print(f"✅ [{layer_type.upper()}] Используем {len(real_polygons)} реальных полигонов")
                     return self.polygon_loader.convert_to_segments(real_polygons)[:200]
         
-        # Иначе генерируем синтетику
         print(f"⚙️ [{layer_type.upper()}] Генерируем {count} синтетических полигонов")
-        # return self._generate_synthetic_segments(bbox, count)
         return []
     
     def generate_segments_in_bbox(
@@ -84,21 +65,6 @@ class MockDataGenerator:
         layer_type: str = "noise",
         count: int = 30
     ) -> List[dict]:
-        """
-        Сгенерировать сегменты улиц в заданной области (синхронно)
-        
-        Если доступны реальные данные для layer_type - использует их,
-        иначе генерирует синтетические.
-        
-        Args:
-            bbox: (lat_min, lon_min, lat_max, lon_max)
-            layer_type: тип слоя (noise, light, crowd, puddles)
-            count: количество сегментов (для синтетики)
-        
-        Returns:
-            Список сегментов с геометрией и метриками
-        """
-        # Попробовать загрузить реальные данные для конкретного типа слоя
         if self.use_real_data and self.polygon_loader:
             if self.polygon_loader.has_data_for_layer(layer_type):
                 real_polygons = self.polygon_loader.find_polygons_in_bbox(layer_type, bbox)
@@ -106,9 +72,7 @@ class MockDataGenerator:
                     print(f"✅ [{layer_type.upper()}] Используем {len(real_polygons)} реальных полигонов")
                     return self.polygon_loader.convert_to_segments(real_polygons)[:200]
         
-        # Иначе генерируем синтетику
         print(f"⚙️ [{layer_type.upper()}] Генерируем {count} синтетических полигонов")
-        # return self._generate_synthetic_segments(bbox, count)
         return []
     
     def _generate_synthetic_segments(
@@ -116,35 +80,30 @@ class MockDataGenerator:
         bbox: Tuple[float, float, float, float],
         count: int = 30
     ) -> List[dict]:
-        """Генерация синтетических сегментов"""
         lat_min, lon_min, lat_max, lon_max = bbox
         segments = []
         
         for i in range(count):
-            # Случайная точка в bbox
             center_lat = random.uniform(lat_min, lat_max)
             center_lon = random.uniform(lon_min, lon_max)
             
-            # Создаём полигон (квадрат ~100-150м)
-            size = random.uniform(0.0008, 0.0012)  # ~100-150м
+            size = random.uniform(0.0008, 0.0012)
             
-            # Координаты полигона (замкнутый квадрат)
             polygon_coords = [
-                [center_lon - size, center_lat - size],  # bottom-left
-                [center_lon + size, center_lat - size],  # bottom-right
-                [center_lon + size, center_lat + size],  # top-right
-                [center_lon - size, center_lat + size],  # top-left
-                [center_lon - size, center_lat - size]   # замыкаем полигон
+                [center_lon - size, center_lat - size],
+                [center_lon + size, center_lat - size],
+                [center_lon + size, center_lat + size],
+                [center_lon - size, center_lat + size],
+                [center_lon - size, center_lat - size]
             ]
             
-            # Определяем тип улицы по расстоянию от центра
             dist_from_center = self._distance_to_center(center_lat, center_lon)
             
             segment = {
                 "id": f"segment_{i:03d}",
                 "geometry": {
                     "type": "Polygon",
-                    "coordinates": [polygon_coords]  # Polygon требует массив массивов
+                    "coordinates": [polygon_coords]
                 },
                 "street_name": f"{random.choice(self.street_types)} {random.choice(self.street_names)}",
                 "metrics": self._generate_metrics_for_location(
@@ -165,24 +124,13 @@ class MockDataGenerator:
         lon: float,
         dist_from_center: float
     ) -> dict:
-        """
-        Сгенерировать метрики для локации
-        
-        Эвристики:
-        - Чем ближе к центру → шумнее и люднее
-        - Проспекты → шумные (70-85 дБ)
-        - Переулки → тихие (50-65 дБ)
-        - Снег: 80% расчищено
-        """
-        # Базовый шум зависит от расстояния до центра
-        # Центр: 70-85 дБ, окраины: 50-65 дБ
-        if dist_from_center < 1.0:  # < 1 км
+        if dist_from_center < 1.0:
             noise_db = random.uniform(70, 85)
             crowd_level = random.randint(3, 5)
-        elif dist_from_center < 2.0:  # 1-2 км
+        elif dist_from_center < 2.0:
             noise_db = random.uniform(60, 75)
             crowd_level = random.randint(2, 4)
-        else:  # > 2 км
+        else:
             noise_db = random.uniform(50, 65)
             crowd_level = random.randint(1, 3)
         
@@ -190,17 +138,12 @@ class MockDataGenerator:
             "noise_db": round(noise_db, 1),
             "crowd_level": crowd_level,
             "light_lux": random.randint(50, 200),
-            "puddles": random.random() > 0.7  # 30% лужи
+            "puddles": random.random() > 0.7
         }
     
     def _distance_to_center(self, lat: float, lon: float) -> float:
-        """
-        Примерное расстояние до центра (в км)
-        Упрощённая формула без учёта сферичности Земли
-        """
         dlat = lat - self.center[0]
         dlon = lon - self.center[1]
-        # 1 градус ≈ 111 км
         return ((dlat ** 2 + dlon ** 2) ** 0.5) * 111
     
     def generate_mock_routes(
@@ -209,29 +152,15 @@ class MockDataGenerator:
         end: Tuple[float, float],
         count: int = 3
     ) -> List[dict]:
-        """
-        Сгенерировать несколько мок-маршрутов между точками
-        
-        Args:
-            start: (lat, lon) начальная точка
-            end: (lat, lon) конечная точка
-            count: количество вариантов
-        
-        Returns:
-            Список маршрутов с геометрией и метриками
-        """
         routes = []
         
         for i in range(count):
-            # Генерируем путь с небольшими отклонениями
             path = self._generate_path(start, end, variation=i * 0.0005)
             
-            # Генерируем сегменты вдоль пути
             segments = self._generate_segments_along_path(path)
             
-            # Считаем общее расстояние и время
             distance_m = self._calculate_distance(path)
-            duration_min = int(distance_m / 80)  # ~5 км/ч = 80 м/мин
+            duration_min = int(distance_m / 80)
             
             route = {
                 "geometry": {
@@ -252,21 +181,9 @@ class MockDataGenerator:
         end: Tuple[float, float],
         variation: float = 0.0
     ) -> List[List[float]]:
-        """
-        Сгенерировать путь между двумя точками
-        
-        Args:
-            start: начальная точка
-            end: конечная точка
-            variation: величина отклонения от прямой
-        
-        Returns:
-            Список координат [[lon, lat], ...]
-        """
         start_lat, start_lon = start
         end_lat, end_lon = end
         
-        # Количество промежуточных точек
         steps = random.randint(5, 10)
         
         path = [[start_lon, start_lat]]
@@ -274,11 +191,9 @@ class MockDataGenerator:
         for i in range(1, steps):
             t = i / steps
             
-            # Линейная интерполяция с отклонением
             lat = start_lat + (end_lat - start_lat) * t
             lon = start_lon + (end_lon - start_lon) * t
             
-            # Добавляем случайное отклонение (извилистость)
             lat += random.uniform(-variation, variation)
             lon += random.uniform(-variation, variation)
             
@@ -292,9 +207,6 @@ class MockDataGenerator:
         self, 
         path: List[List[float]]
     ) -> List[dict]:
-        """
-        Сгенерировать сегменты улиц вдоль пути
-        """
         segments = []
         
         for i in range(len(path) - 1):
@@ -318,18 +230,14 @@ class MockDataGenerator:
         return segments
     
     def _calculate_distance(self, path: List[List[float]]) -> int:
-        """
-        Примерно вычислить длину пути в метрах
-        """
         total_distance = 0
         
         for i in range(len(path) - 1):
             lon1, lat1 = path[i]
             lon2, lat2 = path[i + 1]
             
-            # Упрощённая формула
-            dlat = abs(lat2 - lat1) * 111000  # метры
-            dlon = abs(lon2 - lon1) * 111000 * 0.6  # коррекция на широту
+            dlat = abs(lat2 - lat1) * 111000
+            dlon = abs(lon2 - lon1) * 111000 * 0.6
             
             distance = (dlat ** 2 + dlon ** 2) ** 0.5
             total_distance += distance
@@ -342,21 +250,8 @@ class MockDataGenerator:
         location: Tuple[float, float],
         filters: List[str] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Сгенерировать моковые места для поиска
-        
-        Args:
-            query: поисковый запрос
-            location: (lat, lon) локация пользователя
-            filters: список фильтров доступности
-        
-        Returns:
-            Список мест с данными о доступности
-        """
         if filters is None:
             filters = []
-        
-        # Базовые данные мест
         places_data = [
             {
                 "name": "Кафе 'Уютное место'",
@@ -430,29 +325,24 @@ class MockDataGenerator:
             }
         ]
         
-        # Генерируем места
         places = []
         lat, lon = location
         
         for i, place_data in enumerate(places_data):
-            # Случайная точка рядом с пользователем
-            lat_offset = random.uniform(-0.01, 0.01)  # ~1км
+            lat_offset = random.uniform(-0.01, 0.01)
             lon_offset = random.uniform(-0.01, 0.01)
             
             place_lat = lat + lat_offset
             place_lon = lon + lon_offset
             
-            # Генерируем отзывы
             reviews = self._generate_reviews(place_data["name"])
             
-            # Формируем условия доступности (только доступные)
             accessibility_conditions = []
             for filter_key, (available, rating) in place_data["accessibility"].items():
                 if available and rating > 0:
                     condition = self._create_accessibility_condition(filter_key, available, rating)
                     accessibility_conditions.append(condition)
             
-            # Вычисляем общий рейтинг
             available_ratings = [rating for _, rating in place_data["accessibility"].items() if rating > 0]
             overall_rating = sum(available_ratings) / len(available_ratings) if available_ratings else 0
             
@@ -468,7 +358,6 @@ class MockDataGenerator:
                 "overall_rating": round(overall_rating, 1)
             }
             
-            # Фильтруем по запрошенным фильтрам
             if filters:
                 has_required_filters = all(
                     any(cond["filter_type"] == f for cond in accessibility_conditions)
@@ -482,7 +371,6 @@ class MockDataGenerator:
         return places
     
     def _create_accessibility_condition(self, filter_key: str, available: bool, rating: float) -> Dict[str, Any]:
-        """Создать условие доступности"""
         filter_info = {
             "wheelchair_access": "Пандус или лифт",
             "accessible_parking": "Парковка для инвалидов",
@@ -504,7 +392,6 @@ class MockDataGenerator:
         }
     
     def _generate_reviews(self, place_name: str) -> List[Dict[str, Any]]:
-        """Сгенерировать отзывы для места"""
         review_templates = [
             "Отличное место, очень доступно! Есть пандус и широкие проходы",
             "Хорошая атмосфера, но шумно. Нет индукционной петли",
@@ -529,11 +416,9 @@ class MockDataGenerator:
         return reviews
 
 
-# Singleton для использования в сервисах
 _generator = MockDataGenerator()
 
 
 def get_mock_generator() -> MockDataGenerator:
-    """Получить экземпляр генератора"""
     return _generator
 

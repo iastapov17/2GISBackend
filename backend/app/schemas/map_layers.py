@@ -23,7 +23,7 @@ class NoiseLevel(str, Enum):
 class LayerRequest(BaseModel):
     layer_type: LayerType
     bbox: str = Field(..., description="Bounding box: lat_min,lon_min,lat_max,lon_max")
-    time: Optional[datetime] = Field(None, description="Время для прогноза (опционально)")
+    time: Optional[datetime] = Field(None, description="Время для прогноза")
 
 
 class Geometry(BaseModel):
@@ -78,7 +78,7 @@ class AllLayersResponse(BaseModel):
     """Ответ со всеми слоями сразу"""
     updated_at: datetime
     bbox: str
-    layers: Dict[str, List[SegmentFeature]]  # {"noise": [...], "crowd": [...], ...}
+    layers: Dict[str, List[SegmentFeature]]
     
     class Config:
         json_schema_extra = {
